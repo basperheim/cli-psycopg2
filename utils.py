@@ -75,6 +75,25 @@ def connect():
         handle_errors(err)
 
 
+def grep_sql_files(search_string):
+    sql_files = [file for file in os.listdir('.') if file.endswith('.sql')]
+
+    for file_name in sql_files:
+        with open(file_name, 'r') as file:
+            lines = file.read().splitlines()
+            print_line = False
+            for line in lines:
+                if search_string in line:
+                    print('\n')
+                    print_line = True
+
+                if print_line:
+                    print(line)
+
+                if ';' in line:
+                    print_line = False
+
+
 def backup_table(table):
     """
     Use pg_dump to backup a table
