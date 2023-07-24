@@ -1,7 +1,15 @@
 import sys
 import os
 import subprocess
+import json
+from datetime import datetime
 
+# Custom JSON encoder to handle datetime objects
+class DateTimeEncoder(json.JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, datetime):
+            return obj.isoformat()
+        return super().default(obj)
 
 def install_required_packages():
     print("Required packages are missing. Would you like to install them? (y/n)")
@@ -144,10 +152,15 @@ def fetch_records(table, limit=None):
         cursor.execute(query)
         rows = cursor.fetchall()
 
-        # Print records in a tabular format
-        print(f'\n\x1b[32mRecords\x1b[37m')  # green
+        # Collect data as a list of dictionaries with column names as keys
+        records_list = []
         headers = [column[0] for column in cursor.description]
-        print(tabulate(rows, headers=headers, tablefmt='psql'))
+        for row in rows:
+            record_dict = dict(zip(headers, row))
+            records_list.append(record_dict)
+
+        # Print records as JSON using the custom encoder
+        print(json.dumps(records_list, indent=4, cls=DateTimeEncoder))
 
         # Print metadata
         print('\n\x1b[32mMetadata:\x1b[37m')  # green
@@ -156,6 +169,7 @@ def fetch_records(table, limit=None):
 
         cursor.close()
         conn.close()
+
     except Exception as err:
         handle_errors(err)
 
