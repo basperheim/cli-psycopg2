@@ -2,7 +2,7 @@ import sys
 import os
 import subprocess
 import json
-from datetime import datetime
+import datetime
 
 # Custom JSON encoder to handle datetime objects
 
@@ -165,10 +165,12 @@ def fetch_records(table, limit=None):
         # Print records as JSON using the custom encoder
         try:
             print(json.dumps(records_list, indent=4, cls=DateTimeEncoder))
-        except:
+        except Exception as e:
+            print(e)
             # print(records_list)
             for i in range(len(records_list)):
                 item = records_list[i]
+                # Use the custom encoder here
                 print(json.dumps(item, indent=4, cls=DateTimeEncoder))
 
         # Print metadata
@@ -180,6 +182,7 @@ def fetch_records(table, limit=None):
         conn.close()
 
     except Exception as err:
+        print(err)
         handle_errors(err)
 
 
