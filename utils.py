@@ -5,11 +5,14 @@ import json
 from datetime import datetime
 
 # Custom JSON encoder to handle datetime objects
+
+
 class DateTimeEncoder(json.JSONEncoder):
-    def default(self, obj):
-        if isinstance(obj, datetime):
-            return obj.isoformat()
-        return super().default(obj)
+    def default(self, o):
+        if isinstance(o, (datetime.date, datetime.datetime)):
+            return o.isoformat()
+        return super().default(o)
+
 
 def install_required_packages():
     print("Required packages are missing. Would you like to install them? (y/n)")
@@ -160,12 +163,62 @@ def fetch_records(table, limit=None):
             records_list.append(record_dict)
 
         # Print records as JSON using the custom encoder
-        print(json.dumps(records_list, indent=4, cls=DateTimeEncoder))
+        try:
+            print(json.dumps(records_list, indent=4, cls=DateTimeEncoder))
+        except:
+            # print(records_list)
+            for i in range(len(records_list)):
+                item = records_list[i]
+                print(json.dumps(item, indent=4, cls=DateTimeEncoder))
 
         # Print metadata
         print('\n\x1b[32mMetadata:\x1b[37m')  # green
         for column in cursor.description:
             print(column)
+
+        cursor.close()
+        conn.close()
+
+    except Exception as err:
+        handle_errors(err)
+
+
+def fetch_table_constraints(table):
+    """
+    Fetch table constraints for a Postgres table
+    """
+
+    conn = connect()
+    cursor = conn.cursor()
+
+    try:
+       # Get table constraints
+        query = """
+            SELECT conname, pg_get_constraintdef(oid)
+            FROM pg_constraint
+            WHERE conrelid = (
+                SELECT oid
+                FROM pg_class
+                WHERE relname = %s
+            )
+        """
+        cursor.execute(query, (table,))
+        rows = cursor.fetchall()
+
+        # Collect data as a list of dictionaries with constraint names and sources as keys
+        constraints_list = []
+        headers = [column[0] for column in cursor.description]
+        for row in rows:
+            constraint_dict = dict(zip(headers, row))
+            constraints_list.append(constraint_dict)
+
+        # Print constraints as JSON using the custom encoder
+        try:
+            print(json.dumps(records_list, indent=4, cls=DateTimeEncoder))
+        except:
+            for i in range(len(constraints_list)):
+                item = constraints_list[i]
+                print(json.dumps(item, indent=4, cls=DateTimeEncoder))
 
         cursor.close()
         conn.close()

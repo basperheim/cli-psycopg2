@@ -1,10 +1,10 @@
-from utils import get_tables, backup_table, fetch_records, grep_sql_files
+from utils import get_tables, backup_table, fetch_records, grep_sql_files, fetch_table_constraints
 import psycopg2
 from dotenv import load_dotenv
 import json
 import sys
 
-allowed_funcs = ['get_tables', 'fetch_records',
+allowed_funcs = ['get_tables', 'fetch_records', 'table_constraints',
                  'backup_table', 'backup_all_tables', 'search_sql', 'search_tables']
 
 if len(sys.argv) <= 1:
@@ -35,7 +35,7 @@ if len(sys.argv) >= 2:
             target_search = arg.replace('search=', '')
 
 # exit with a non-zero status code if this func needs a table passed, and none was provided
-needs_table_passed = ['backup_table', 'fetch_records']
+needs_table_passed = ['backup_table', 'fetch_records', 'table_constraints']
 table_arg_err = f"'{desired_func}' requires that you pass a 'table' argument."
 if not target_table and desired_func in needs_table_passed:
     print(table_arg_err)
@@ -54,6 +54,8 @@ if desired_func == 'backup_table':
     backup_table(target_table)
 elif desired_func == 'fetch_records':
     fetch_records(target_table, limit=target_limit)
+elif desired_func == 'table_constraints':
+    fetch_table_constraints(target_table)
 elif desired_func == 'get_tables':
     get_tables()
 elif desired_func == 'search_tables':
