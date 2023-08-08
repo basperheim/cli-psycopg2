@@ -3,11 +3,20 @@ import os
 import subprocess
 import json
 import datetime
+from decimal import Decimal
 
-# Custom JSON encoder to handle datetime objects
+
+def decimal_to_string(obj):
+    if isinstance(obj, Decimal):
+        return str(obj)
+    raise TypeError(f"Object of type {type(obj)} is not JSON serializable")
 
 
 class DateTimeEncoder(json.JSONEncoder):
+    """
+    Custom JSON encoder to handle datetime objects
+    """
+
     def default(self, o):
         if isinstance(o, (datetime.date, datetime.datetime)):
             return o.isoformat()
@@ -164,14 +173,19 @@ def fetch_records(table, limit=None):
 
         # Print records as JSON using the custom encoder
         try:
-            print(json.dumps(records_list, indent=4, cls=DateTimeEncoder))
+            print(json.dumps(records_list, indent=4,
+                  cls=DateTimeEncoder, default=decimal_to_string))
         except Exception as e:
             print(e)
             # print(records_list)
             for i in range(len(records_list)):
                 item = records_list[i]
                 # Use the custom encoder here
-                print(json.dumps(item, indent=4, cls=DateTimeEncoder))
+                try:
+                    print(json.dumps(item, indent=4, cls=DateTimeEncoder,
+                          default=decimal_to_string))
+                except:
+                    print(item)
 
         # Print metadata
         print('\n\x1b[32mMetadata:\x1b[37m')  # green
