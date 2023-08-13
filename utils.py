@@ -6,10 +6,27 @@ import datetime
 from decimal import Decimal
 
 
+def haversine(lat1, lon1, lat2, lon2):
+    # haversine formula to calculate distance between two coordinates
+    from math import radians, sin, cos, sqrt, atan2
+
+    R = 6371000  # Earth radius in meters
+
+    lat1, lon1, lat2, lon2 = map(radians, [lat1, lon1, lat2, lon2])
+
+    dlat = lat2 - lat1
+    dlon = lon2 - lon1
+
+    a = sin(dlat / 2) ** 2 + cos(lat1) * cos(lat2) * sin(dlon / 2) ** 2
+    c = 2 * atan2(sqrt(a), sqrt(1 - a))
+
+    distance = R * c
+    return distance
+
 def decimal_to_string(obj):
     if isinstance(obj, Decimal):
         return str(obj)
-    raise TypeError(f"Object of type {type(obj)} is not JSON serializable")
+    return None
 
 
 class DateTimeEncoder(json.JSONEncoder):
@@ -231,7 +248,7 @@ def fetch_table_constraints(table):
 
         # Print constraints as JSON using the custom encoder
         try:
-            print(json.dumps(records_list, indent=4, cls=DateTimeEncoder))
+            print(json.dumps(constraints_list, indent=4, cls=DateTimeEncoder))
         except:
             for i in range(len(constraints_list)):
                 item = constraints_list[i]
@@ -278,3 +295,199 @@ def get_tables():
         handle_errors(err)
 
     return final_tables
+
+
+def fetch_latest_records(table, limit=20):
+    """
+    Fetch the latest records for a Postgres table with a specified limit
+    """
+
+    conn = connect()
+    cursor = conn.cursor()
+
+    try:
+        # Check if "createdAt" column exists in the table
+        cursor.execute(
+            f"SELECT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = %s AND column_name = 'createdAt')",
+            (table,)
+        )
+        has_created_at_column = cursor.fetchone()[0]
+
+        if has_created_at_column:
+            # Construct query to fetch latest records with sorting by "createdAt"
+            query = f"SELECT * FROM {table} ORDER BY createdAt DESC LIMIT %s"
+        else:
+            # Construct query to fetch latest records without sorting
+            query = f"SELECT * FROM {table} LIMIT %s"
+
+        cursor.execute(query, (limit,))
+        rows = cursor.fetchall()
+
+        # Collect data as a list of dictionaries with column names as keys
+        records_list = []
+        headers = [column[0] for column in cursor.description]
+        for row in rows:
+            record_dict = dict(zip(headers, row))
+            records_list.append(record_dict)
+
+        # Print records as JSON using the custom encoder
+        try:
+            print(json.dumps(records_list, indent=4,
+                  cls=DateTimeEncoder, default=decimal_to_string))
+        except Exception as e:
+            print(e)
+            # Print each record individually using the custom encoder
+            for item in records_list:
+                try:
+                    print(json.dumps(item, indent=4, cls=DateTimeEncoder,
+                          default=decimal_to_string))
+                except:
+                    print(item)
+
+        cursor.close()
+        conn.close()
+
+    except Exception as err:
+        handle_errors(err)
+
+
+def get_table_size(table):
+    """
+    Get the table size in MB
+    """
+
+    try:
+        conn = connect()
+        cursor = conn.cursor()
+
+        # Execute query to fetch table size
+        query = f"SELECT pg_size_pretty(pg_total_relation_size(%s))"
+        cursor.execute(query, (table,))
+        size = cursor.fetchone()[0]
+
+        cursor.close()
+        conn.close()
+
+        print(f"The total size of table '{table}' is: {size}")
+    except Exception as err:
+        handle_errors(err)
+
+def fetch_table_schema(table):
+    try:
+        conn = connect()
+        cursor = conn.cursor()
+
+        # Execute query to fetch table schema
+        query = f"SELECT column_name, data_type, character_maximum_length, is_nullable FROM information_schema.columns WHERE table_name = %s"
+        cursor.execute(query, (table,))
+        schema_rows = cursor.fetchall()
+
+        cursor.close()
+        conn.close()
+
+        schema = []
+        for row in schema_rows:
+            column_name, data_type, character_length, is_nullable = row
+            schema.append({
+                "column_name": column_name,
+                "data_type": data_type,
+                "character_length": character_length,
+                "is_nullable": is_nullable
+            })
+
+        print(f"Schema for table '{table}':")
+        for col in schema:
+            print(col)
+
+    except Exception as err:
+        handle_errors(err)
+
+
+def query_table(table, query_str, limit=20):
+    try:
+        conn = connect()
+        cursor = conn.cursor()
+
+        # Execute the query with provided query_str and limit
+        query = f"SELECT * FROM {table} WHERE {query_str} LIMIT %s"
+        cursor.execute(query, (limit,))
+        rows = cursor.fetchall()
+
+        cursor.close()
+        conn.close()
+
+        print(f"Query results for table '{table}' with query '{query_str}':")
+
+        # Collect data as a list of dictionaries with column names as keys
+        records_list = []
+        headers = [column[0] for column in cursor.description]
+        for row in rows:
+            record_dict = dict(zip(headers, row))
+            records_list.append(record_dict)
+
+        # Print as JSON using the custom encoder
+        try:
+            print(json.dumps(records_list, indent=4, cls=DateTimeEncoder, default=decimal_to_string))
+        except:
+            for i in range(len(records_list)):
+                item = records_list[i]
+                print(json.dumps(item, indent=4, cls=DateTimeEncoder, default=decimal_to_string))
+
+    except Exception as err:
+        handle_errors(err)
+
+
+def nearby_records(table, lat, lng):
+    """
+    Fetch records nearby to lat/lng coords
+    """
+
+    distance = 20_000
+    limit = 30
+
+    try:
+        conn = connect()
+        cursor = conn.cursor()
+
+        # Check if "latitude" and "longitude" columns are present in the table
+        cursor.execute(
+            f"SELECT column_name FROM information_schema.columns WHERE table_name = %s AND column_name IN ('latitude', 'longitude')",
+            (table,)
+        )
+        required_columns = ["latitude", "longitude"]
+        existing_columns = [row[0] for row in cursor.fetchall()]
+
+        if set(required_columns).issubset(existing_columns):
+            query = f"SELECT * FROM {table} WHERE ST_DWithin(geog::geometry, ST_SetSRID(ST_MakePoint({lng}, {lat}), 4326)::geography, {distance}) LIMIT {limit};"
+            cursor.execute(query)
+
+            rows = cursor.fetchall()
+            cursor.close()
+            conn.close()
+
+            # Collect data as a list of dictionaries with column names as keys
+            records_list = []
+            headers = [column[0] for column in cursor.description]
+            for row in rows:
+                record_dict = dict(zip(headers, row))
+                records_list.append(record_dict)
+
+            # Calculate distance for each record using haversine formula and convert to miles
+            for record in records_list:
+                record['distance_in_miles'] = haversine(lat, lng, float(record['latitude']), float(record['longitude'])) * 0.000621371  # Conversion factor for meters to miles
+
+            # Sort records by distance
+            sorted_records = sorted(records_list, key=lambda record: record['distance_in_miles'])
+            
+            # Print as JSON using the custom encoder
+            try:
+                print(json.dumps(sorted_records, indent=4, cls=DateTimeEncoder, default=decimal_to_string))
+            except:
+                for i in range(len(sorted_records)):
+                    item = sorted_records[i]
+                    print(json.dumps(item, indent=4, cls=DateTimeEncoder, default=decimal_to_string))
+        else:
+            print("Error: The required 'latitude' and 'longitude' columns are not present in the table.")
+
+    except Exception as err:
+        handle_errors(err)
