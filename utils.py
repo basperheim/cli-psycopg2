@@ -330,19 +330,49 @@ def fetch_latest_records(table, limit=20):
             record_dict = dict(zip(headers, row))
             records_list.append(record_dict)
 
+
         # Print records as JSON using the custom encoder
         try:
-            print(json.dumps(records_list, indent=4,
-                  cls=DateTimeEncoder, default=decimal_to_string))
+            print(json.dumps(records_list, indent=4, cls=DateTimeEncoder))
         except Exception as e:
             print(e)
             # Print each record individually using the custom encoder
             for item in records_list:
                 try:
-                    print(json.dumps(item, indent=4, cls=DateTimeEncoder,
-                          default=decimal_to_string))
+                    print(json.dumps(item, indent=4, cls=DateTimeEncoder))
                 except:
                     print(item)
+
+        cursor.close()
+        conn.close()
+
+    except Exception as err:
+        handle_errors(err)
+
+
+def get_indexes(table):
+    """
+    Get indexes for the specified table
+    """
+
+    conn = connect()
+    cursor = conn.cursor()
+
+    try:
+        # Execute query to fetch indexes for the specified table
+        cursor.execute(
+            f"""
+            SELECT indexname, indexdef
+            FROM pg_indexes
+            WHERE schemaname = 'public' AND tablename = '{table}'
+            """
+        )
+
+        indexes = []
+        for index_name, index_def in cursor.fetchall():
+            indexes.append((index_name, index_def))
+
+        print(json.dumps(indexes, indent=4))
 
         cursor.close()
         conn.close()

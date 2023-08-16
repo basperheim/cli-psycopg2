@@ -1,13 +1,13 @@
 from utils import get_tables, backup_table, fetch_records, grep_sql_files, fetch_table_constraints
 from utils import fetch_latest_records, fetch_table_schema, get_table_size, query_table, nearby_records
-from utils import nearby_records
+from utils import nearby_records, get_indexes
 
 import psycopg2
 from dotenv import load_dotenv
 import json
 import sys
 
-allowed_funcs = ['tables', 'fetch', 'constraints', 'latest', 'nearby',
+allowed_funcs = ['tables', 'fetch', 'constraints', 'latest', 'nearby', 'indexes',
                  'backup', 'backup', 'search', 'schema', 'size', 'query']
 
 if len(sys.argv) <= 1:
@@ -51,7 +51,7 @@ if desired_func == "nearby":
         sys.exit(2)        
 
 # exit with a non-zero status code if this func needs a table passed, and none was provided
-needs_table_passed = ['backup', 'fetch', 'constraints', 'latest', 'size', 'schema', 'query', 'nearby']
+needs_table_passed = ['backup', 'fetch', 'constraints', 'latest', 'size', 'schema', 'query', 'nearby', 'indexes']
 table_arg_err = f"'{desired_func}' requires that you pass a 'table' argument."
 if not target_table and desired_func in needs_table_passed:
     print(table_arg_err)
@@ -76,6 +76,8 @@ elif desired_func == 'tables':
     get_tables()
 elif desired_func == 'search':
     grep_sql_files(target_search)
+elif desired_func == 'indexes':
+    get_indexes(target_table)
 elif desired_func == 'latest':
     fetch_latest_records(target_table, target_limit)
 elif desired_func == 'schema':
