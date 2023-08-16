@@ -34,18 +34,18 @@ DB_PASSWORD=your_password
 
 ## Usage
 
-To use the CLI application, run the postgres.py script with the desired function as the argument. Available functions are:
+To use the CLI application, run the postgres.py script with the desired function as the argument. Some functions are:
 
-- `get_tables`: Fetch all tables in the database.
-- `fetch_records`: Fetch records and metadata for a specific table.
-- `backup_table`: Backup a specific table.
+- `tables`: Fetch all tables in the database.
+- `fetch`: Fetch records and metadata for a specific table.
+- `backup`: Backup a specific table.
 
 Examples:
 
 ```bash
-python3 postgres.py get_tables
-python3 postgres.py fetch_records table_name
-python3 postgres.py backup_table table_name
+python3 postgres.py tables
+python3 postgres.py fetch table_name
+python3 postgres.py backup table_name
 ```
 
 Replace `table_name` with the actual name of the table you want to interact with.
