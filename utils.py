@@ -97,6 +97,7 @@ def connect():
         db_name = os.getenv('DB_NAME')
         db_user = os.getenv('DB_USER')
         db_password = os.getenv('DB_PASSWORD')
+        print(f"\x1b[33mHOST: {db_host[-20:]} - PORT: {db_port}\x1b[37m")
 
         # Connect to the PostgreSQL database
         conn = psycopg2.connect(
@@ -151,6 +152,7 @@ def backup_table(table):
         db_name = os.getenv('DB_NAME')
         db_user = os.getenv('DB_USER')
         db_password = os.getenv('DB_PASSWORD')
+        print(f"\x1b[33mHOST: {db_host[-20:]} - PORT: {db_port}\x1b[37m")
 
         # Set the PGPASSWORD environment variable
         os.environ['PGPASSWORD'] = db_password
@@ -190,6 +192,12 @@ def fetch_records(table, limit=None):
 
         # Print records as JSON using the custom encoder
         try:
+
+            for item in records_list:
+                pass
+                # if 
+                # print(it
+
             print(json.dumps(records_list, indent=4,
                   cls=DateTimeEncoder, default=decimal_to_string))
         except Exception as e:
@@ -201,7 +209,8 @@ def fetch_records(table, limit=None):
                 try:
                     print(json.dumps(item, indent=4, cls=DateTimeEncoder,
                           default=decimal_to_string))
-                except:
+                except Exception as e:
+                    print(e)
                     print(item)
 
         # Print metadata
