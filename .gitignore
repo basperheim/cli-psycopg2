@@ -1,6 +1,7 @@
 # macOS-related files
 .DS_Store
 
+*.dump
 *.sql
 .vscode/
 
