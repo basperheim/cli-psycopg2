@@ -2,9 +2,9 @@ import sys
 import os
 import subprocess
 import json
-import datetime
+from datetime import datetime, date
 from decimal import Decimal
-
+from psycopg2.extras import Json
 
 def haversine(lat1, lon1, lat2, lon2):
     # haversine formula to calculate distance between two coordinates
@@ -35,7 +35,7 @@ class DateTimeEncoder(json.JSONEncoder):
     """
 
     def default(self, o):
-        if isinstance(o, (datetime.date, datetime.datetime)):
+        if isinstance(o, (date, datetime)):
             return o.isoformat()
         return super().default(o)
 
@@ -71,6 +71,7 @@ def handle_errors(err):
     """
 
     if isinstance(err, (AttributeError, psycopg2.OperationalError)):
+        print(err)
         print("\x1b[31mError: Failed to connect to the database.\x1b[37m")
         print("\x1b[33mPlease ensure that the PostgreSQL server is running, and the environment variables (in .env) are correct.\x1b[37m")
     else:
@@ -166,17 +167,16 @@ def backup_table(table):
     sys.stdout.write('\a')
     sys.stdout.flush()
 
-
 def fetch_records(table, limit=None):
-    """
-    Fetch records and metadata for a Postgres table
-    """
-
     conn = connect()
     cursor = conn.cursor()
 
     try:
         query = f"SELECT * FROM {table}"
+
+        # Add an ORDER BY clause to sort by the 'id' column in ascending order
+        query += " ORDER BY id ASC"
+
         if limit is not None and limit > 0:
             query += f" LIMIT {int(limit)}"
 
@@ -187,31 +187,28 @@ def fetch_records(table, limit=None):
         records_list = []
         headers = [column[0] for column in cursor.description]
         for row in rows:
-            record_dict = dict(zip(headers, row))
+            record_dict = {}
+            for key, value in zip(headers, row):
+                if isinstance(value, bytes):
+                    # Convert bytes to string
+                    record_dict[key] = value.decode('utf-8')
+                elif isinstance(value, memoryview):
+                    # Convert memoryview to bytes and then to string
+                    record_dict[key] = bytes(value).decode('utf-8')
+                elif isinstance(value, datetime):
+                    # Convert datetime to ISO 8601 string
+                    record_dict[key] = value.isoformat()
+                else:
+                    # For other types, use their string representation
+                    record_dict[key] = str(value)
             records_list.append(record_dict)
 
-        # Print records as JSON using the custom encoder
+        # Serialize records using the custom encoder
         try:
-
-            for item in records_list:
-                pass
-                # if 
-                # print(it
-
-            print(json.dumps(records_list, indent=4,
-                  cls=DateTimeEncoder, default=decimal_to_string))
-        except Exception as e:
-            print(e)
-            # print(records_list)
-            for i in range(len(records_list)):
-                item = records_list[i]
-                # Use the custom encoder here
-                try:
-                    print(json.dumps(item, indent=4, cls=DateTimeEncoder,
-                          default=decimal_to_string))
-                except Exception as e:
-                    print(e)
-                    print(item)
+            serialized_records = json.dumps(records_list, indent=4, cls=DateTimeEncoder)
+            print(serialized_records)
+        except Exception as TypeError:
+            print(records_list)
 
         # Print metadata
         print('\n\x1b[32mMetadata:\x1b[37m')  # green
@@ -222,9 +219,7 @@ def fetch_records(table, limit=None):
         conn.close()
 
     except Exception as err:
-        print(err)
         handle_errors(err)
-
 
 def fetch_table_constraints(table):
     """
@@ -517,7 +512,7 @@ def nearby_records(table, lat, lng):
 
             # Sort records by distance
             sorted_records = sorted(records_list, key=lambda record: record['distance_in_miles'])
-            
+
             # Print as JSON using the custom encoder
             try:
                 print(json.dumps(sorted_records, indent=4, cls=DateTimeEncoder, default=decimal_to_string))
