@@ -174,10 +174,10 @@ def fetch_records(table, limit=None):
     try:
         query = f"SELECT * FROM {table}"
 
-        # Add an ORDER BY clause to sort by the 'id' column in ascending order
-        query += " ORDER BY id ASC"
+        # Add an ORDER BY clause to sort by the 'id' column in descending order
+        query += " ORDER BY id DESC"
 
-        if limit is not None and limit > 0:
+        if limit and limit > 0:
             query += f" LIMIT {int(limit)}"
 
         cursor.execute(query)
@@ -202,6 +202,10 @@ def fetch_records(table, limit=None):
                     # For other types, use their string representation
                     record_dict[key] = str(value)
             records_list.append(record_dict)
+
+
+        # Sort records by 'id' in ascending order, treating them as integers
+        records_list.sort(key=lambda x: int(x['id']))
 
         # Serialize records using the custom encoder
         try:
